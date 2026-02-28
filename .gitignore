@@ -1,1 +1,17 @@
 .venv
+*/tut/
+*tests.ipynb
+Schematics/Solar_charger_v1/Solar_charger_v1-backups/
+bare_metal/
+
+# Files available by default in CubeID
+*.settings/
+*Debug/
+*Drivers/
+.cproject
+.mxproject
+.project
+.osx.project
+MPPT_Solar_Charger Debug.launch
+STM32F446RETX_FLASH.ld
+STM32F446RETX_RAM.ld 
