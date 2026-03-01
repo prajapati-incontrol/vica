@@ -38,15 +38,32 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define NUM_SAMPLES 10
-#define GAIN_ONE_FACTOR 0.000125
-#define GAIN_SIXTEEN_FACTOR 0.0000078125
+// ADS ACS Config
+#define NUM_SAMPLES                  10
+#define GAIN_ONE_FACTOR              0.000125f
+#define GAIN_SIXTEEN_FACTOR          0.0000078125f
 #define EMP_ADC1_ZERO_CURRENT_OFFSET 2900
 #define EMP_ADC2_ZERO_CURRENT_OFFSET 1300
-#define ACS712_SENSITIVITY 0.185
-#define EMP_V_A2_IN_CONSTANT 0.091160986
-#define EMP_V_A2_OUT_CONSTANT 0.091669765
-#define PWM_INCREMENT 50
+#define ACS712_SENSITIVITY           0.185f
+#define EMP_V_A2_IN_CONSTANT         0.091160986f
+#define EMP_V_A2_OUT_CONSTANT        0.091669765f
+#define PWM_INCREMENT                50 // when using button (open loop)
+
+// MPPT Config for closed loop feedback
+// using PWM resolution of 1000
+#define MPPT_DELTA_DUTY     10
+#define MPPT_DUTY_MIN       100
+#define MPPT_DUTY_MAX       900
+
+// MPPT state variables
+float prev_p_in      = 0.0f;
+float prev_v_in      = 0.0f;
+float prev_duty_q1   = 500;          // depends on the battery used for charging.
+
+// Fan control
+#define FAN_DELTA_DUTY     50
+#define FAN_MIN 0
+#define FAN_MAX 500
 
 /* USER CODE END PD */
 
@@ -330,10 +347,39 @@ int main(void)
 	  lcd_send_string(buf_duty);
 	  lcd_send_string("%");
 
-//	  DHT11_GetData(&DHT11_Data);
-//	  Temperature = DHT11_Data.Temperature;
-//	  Humidity = DHT11_Data.Humidity;
-//	  error = Temperature - Temp_set;
+	  DHT11_GetData(&DHT11_Data);
+	  Temperature = DHT11_Data.Temperature;
+	  Humidity = DHT11_Data.Humidity;
+	  error = Temperature - Temp_set;
+
+	  if (error > 0)
+	      fanAmplitude += DELTA_DUTY;
+	  else if (error < 0)
+	      fanAmplitude -= DELTA_DUTY;
+
+	  // Clamp
+	  if (fanAmplitude > FAN_MAX) fanAmplitude = FAN_MAX;
+	  if (fanAmplitude < FAN_MIN) fanAmplitude = FAN_MIN;
+
+	  /* MPPT Algorithm a simple perturb and observe */
+	  // compute power
+	  mean_p_in  = mean_v_in  * mean_i_in;
+	  mean_p_out = mean_v_out * mean_i_out;
+
+	  // P&O MPPT
+	  float delta_p = mean_p_in - prev_p_in;
+
+	  if (delta_p > 0.0f)
+	      duty_q1 += MPPT_DELTA_DUTY;
+	  else if (delta_p < 0.0f)
+	      duty_q1 -= MPPT_DELTA_DUTY;
+
+	  // Clamp
+	  if (duty_q1 > MPPT_DUTY_MAX) duty_q1 = MPPT_DUTY_MAX;
+	  if (duty_q1 < MPPT_DUTY_MIN) duty_q1 = MPPT_DUTY_MIN;
+
+	  // Store previous
+	  prev_p_in = mean_p_in;
 
 	  HAL_Delay(50);
     /* USER CODE END WHILE */
